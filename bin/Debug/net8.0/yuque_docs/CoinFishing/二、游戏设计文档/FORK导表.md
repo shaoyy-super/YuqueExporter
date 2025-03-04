@@ -1,0 +1,21 @@
+1. 本地EXCEL修改
+    1. C:\Users\zhang_yu\aquaman\config\normal\main
+2. 视图——宏
+    1. 导出当前页
+    2. 会被360等拦截，需要信任所有宏
+    3. ![](https://cdn.nlark.com/yuque/0/2024/png/49594022/1732007189033-ac1bc590-5464-4dcd-b688-691eea27c0c5.png)
+    4. ![](https://cdn.nlark.com/yuque/0/2024/png/49594022/1732007447215-177b7c4e-3ab3-4ffa-b686-e88ed26ca62a.png)
+3. FORK
+    1. 先刷新【远端】，看是否有冲突
+        1. ![](https://cdn.nlark.com/yuque/0/2024/png/49594022/1732007788234-305a6ad9-4d50-45c2-b49e-008f32098e51.png)
+    2. 保存
+        1. 选中（导出的文件1.xlsm，导出格式2，导出格式3，共计3个。点击stage(储存)
+        2. 提交的备注
+            1. 主题
+            2. 详细描述
+            3. 点击提交按钮
+        3. ![](https://cdn.nlark.com/yuque/0/2024/png/49594022/1732008341121-7fa77daf-c962-4abb-a592-01a46533e872.png)
+        4. ![](https://cdn.nlark.com/yuque/0/2024/png/49594022/1732007770639-ab89d750-3fa0-4e99-9272-5a2e8a722de2.png)
+4. 再拉取PULL
+5. 推送PUSH
+
