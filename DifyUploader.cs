@@ -268,7 +268,7 @@ namespace yuque_exporter
         /// <summary>
         /// 上传文件至知识库
         /// </summary>
-        public static async Task UploadFilesToDatabase(string databaseId, List<string> filePaths,int secondMaxReqCount = 20)
+        public static async Task UploadFilesToDatabase(string databaseId, List<string> filePaths,int secondMaxReqCount = 10)
         {
             try
             {
