@@ -1,13 +1,12 @@
-using System;
-using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Collections.Generic;
 
 namespace yuque_exporter
 {
     public class Config
     {
+        [JsonPropertyName("is_debug")]
+        public bool IsDebug { get; set; } = true;
         [JsonPropertyName("yuque")]
         public YuqueConfig Yuque { get; set; } = new YuqueConfig();
         [JsonPropertyName("dify")]
@@ -16,8 +15,7 @@ namespace yuque_exporter
         public class YuqueConfig
         {
             [JsonPropertyName("base_url")]
-            public string BaseUrl { get; set; } = "https://www.yuque.com";
-
+            public string BaseUrl { get; set; } = "https://www.yuque.com";          
             [JsonPropertyName("groups")]
             public List<YuqueGroup> Groups { get; set; } = new List<YuqueGroup>();
 
@@ -97,7 +95,7 @@ namespace yuque_exporter
 
         public static Config LoadConfig()
         {
-            string configPath = Path.Combine(Environment.CurrentDirectory, "config.json");
+            string configPath = Path.Combine(AppContext.BaseDirectory, "config.json");
             if (!File.Exists(configPath))
             {
                 throw new FileNotFoundException("配置文件不存在", configPath);

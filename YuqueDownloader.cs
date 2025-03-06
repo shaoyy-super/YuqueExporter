@@ -1,11 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using System.IO;
+using static yuque_exporter.Utils;
 
 namespace yuque_exporter
 {
@@ -130,26 +127,29 @@ namespace yuque_exporter
         public static async Task DownloadYuqueDoc()
         {
             // 获取当前执行目录的绝对路径
-            string currentDirectory = Environment.CurrentDirectory;
+            string currentDirectory = AppContext.BaseDirectory;
             string yuqueDocsPath = Path.Combine(currentDirectory, "yuque_docs");
 
-            Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 开始下载语雀文档，目标目录: {yuqueDocsPath}");
+            // 导出文档的路径与文档内容
+            List<KeyValuePair<string,string>> docInfoLst = new List<KeyValuePair<string,string>>();
+
+            DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 开始下载语雀文档，目标目录: {yuqueDocsPath}");
 
             // 如果目标目录已存在，则先删除再创建
             if (Directory.Exists(yuqueDocsPath))
             {
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 清理已存在的目标目录");
+                DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 清理已存在的目标目录");
                 Directory.Delete(yuqueDocsPath, true);
             }
             Directory.CreateDirectory(yuqueDocsPath);
-            Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 创建目标目录完成");
+            DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 创建目标目录完成",ConsoleColor.Green);
 
             // 加载配置文件
             var config = yuque_exporter.Config.LoadConfig();
-            Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 配置文件加载完成");
+            DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 配置文件加载完成",ConsoleColor.Green);
 
             // 遍历配置中的所有语雀分组
-            Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 开始处理语雀分组，共 {config.Yuque.Groups.Count} 个分组");
+            DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 开始处理语雀分组，共 {config.Yuque.Groups.Count} 个分组");
             foreach (var group in config.Yuque.Groups)
             {
                 try
@@ -158,51 +158,55 @@ namespace yuque_exporter
                     Dictionary<string, string> headers = new Dictionary<string, string>();
                     headers.Add("X-Auth-Token", group.Token);
 
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 正在处理分组: {group.Description}");
+                    DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 正在处理分组: {group.Description}");
                     // 获取用户信息
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 正在获取用户信息...");
+                    DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 正在获取用户信息...");
                     string userResponse = await Utils.SendHttpRequest(config.Yuque.BaseUrl + $"/api/v2/user", HttpMethod.Get, headers);
                     var user = JsonSerializer.Deserialize<UserData>(userResponse);
                     if (user?.Data == null)
                     {
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 获取用户信息失败: {group.Description}");
+                        DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 获取用户信息失败: {group.Description}");
                         continue;
                     }
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 成功获取用户信息: {user.Data.Name}");
+                    DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 成功获取用户信息: {user.Data.Name}", ConsoleColor.Green);
 
                     // 创建用户文档目录
                     string userPath = Path.Combine(yuqueDocsPath, user.Data.Name);
                     Directory.CreateDirectory(userPath);
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 创建用户目录: {userPath}");
+                    DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 创建用户目录: {userPath}");
 
                     // 获取知识库列表
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 正在获取知识库列表...");
+                    DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 正在获取知识库列表...");
                     string reposResponse = await Utils.SendHttpRequest(config.Yuque.BaseUrl + $"/api/v2/groups/{group.Url}/repos", HttpMethod.Get, headers);
                     var repos = JsonSerializer.Deserialize<Repos>(reposResponse);
                     if (repos?.Data == null)
                     {
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 获取知识库列表失败: {group.Description}");
+                        DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 获取知识库列表失败: {group.Description}");
                         continue;
                     }
-                    Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 成功获取知识库列表，共 {repos.Data.Count} 个知识库");
+                    DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 成功获取知识库列表，共 {repos.Data.Count} 个知识库",ConsoleColor.Green);
                     // 遍历所有公开的知识库
                     foreach (var repo in repos.Data.Where(r => r.Public != 0))
                     {
                         try
                         {
-                            await ProcessRepos(userPath, repo, headers);
+                            await ProcessRepos(userPath, repo, headers, docInfoLst);
                         }
                         catch (Exception ex)
                         {
-                            Console.WriteLine($"处理知识库 {repo.Name} 时发生错误: {ex.Message}");
+                            DebugLog.LogError($"处理知识库 {repo.Name} 时发生错误: {ex.Message}");
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"处理分组 {group.Description} 时发生错误: {ex.Message}");
+                    DebugLog.LogError($"处理分组 {group.Description} 时发生错误: {ex.Message}");
                 }
             }
+
+            // 导出文档
+            await ExportText(docInfoLst);
+
         }
 
         /// <summary>
@@ -212,69 +216,81 @@ namespace yuque_exporter
         /// <param name="repo">知识库信息</param>
         /// <param name="header">HTTP请求头</param>
         /// <returns>异步任务</returns>
-        static async Task ProcessRepos(string userPath, Repo repo, Dictionary<string, string> headers)
+        static async Task ProcessRepos(string userPath, Repo repo, Dictionary<string, string> headers, List<KeyValuePair<string, string>> docInfoLst)
         {
             try
             {
                 var config = yuque_exporter.Config.LoadConfig();
                 string repoPath = Path.Combine(userPath, repo.Name);
                 Directory.CreateDirectory(repoPath);
-
-                int offset = 0;
-                // 循环请求文档列表，因为每次最多返回100条记录
+                int offset = 0;          
+                List<ReqBoxInfo> reqBoxInfos = new List<ReqBoxInfo>();
                 while (offset < repo.ItemsCount)
                 {
-                    // 获取知识库中的文档列表
                     string repoId = repo.Namespace;
-                    string repoResponse = await Utils.SendHttpRequest(config.Yuque.BaseUrl + $"/api/v2/repos/{repoId}/docs?offset={offset}", HttpMethod.Get, headers);
-
-                    var docs = JsonSerializer.Deserialize<Docs>(repoResponse);
-                    if (docs?.Data == null)
-                    {
-                        Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 获取文档列表失败: {repoId}");
-                        return;
-                    }
-
-                    // 遍历文档列表，获取每个文档的详细内容
-                    foreach (var doc in docs.Data)
-                    {
-                        try
-                        {
-                            string docSlug = doc.Slug;
-                            string docDetail = await Utils.SendHttpRequest(config.Yuque.BaseUrl + $"/api/v2/repos/{repoId}/docs/{docSlug}", HttpMethod.Get, headers);
-                            
-                            // 解析文档详情并保存为Markdown文件
-                            var docData = JsonSerializer.Deserialize<DocData>(docDetail);
-                            if (docData?.Data != null)
-                            {
-                                // 处理文件名中的非法字符
-                                string fileName = docData.Data.Title;
-                                foreach (char invalidChar in Path.GetInvalidFileNameChars())
-                                {
-                                    fileName = fileName.Replace(invalidChar.ToString(), "");
-                                }
-                                string filePath = Path.Combine(repoPath, $"{fileName}.md");
-                                await File.WriteAllTextAsync(filePath, docData.Data.Body);
-                                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 导出文档: {filePath}");
-                            }
-                            else
-                            {
-                                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 获取文档详情失败: {docSlug}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 处理文档时发生错误: {ex.Message}");
-                        }
-                    }
+                    reqBoxInfos.Add(new ReqBoxInfo(config.Yuque.BaseUrl + $"/api/v2/repos/{repoId}/docs?offset={offset}", headers));
                     offset += 100;
                 }
+                List< string > repoResponseLst = await Utils.SendHttpRequest(reqBoxInfos, HttpMethod.Get,100);
+                List<ReqBoxInfo> docReqBoxInfo = new List<ReqBoxInfo>();
+                for (int i = 0; i < repoResponseLst.Count; i++)
+                {
+                    Docs? docs = JsonSerializer.Deserialize<Docs>(repoResponseLst[i]);
+                    if (docs?.Data == null)
+                    {
+                        continue;
+                    }
+                    // 遍历文档列表，获取每个文档的详细内容
+                    foreach (var doc in docs.Data)
+                    {                     
+                        docReqBoxInfo.Add(new ReqBoxInfo(config.Yuque.BaseUrl + $"/api/v2/repos/{repo.Namespace}/docs/{doc.Slug}", headers));                                                 
+                    }
+                }
+
+                List<string> docDetailLst = await Utils.SendHttpRequest(docReqBoxInfo, HttpMethod.Get);
+                for (int i = 0;i < docDetailLst.Count; i++)
+                {
+                    // 解析文档详情并保存为Markdown文件
+                    var docData = JsonSerializer.Deserialize<DocData>(docDetailLst[i]);
+                    if (docData?.Data != null)
+                    {
+                        // 处理文件名中的非法字符
+                        string fileName = docData.Data.Title;
+                        foreach (char invalidChar in Path.GetInvalidFileNameChars())
+                        {
+                            fileName = fileName.Replace(invalidChar.ToString(), "");
+                        }
+                        string filePath = Path.Combine(repoPath, $"{fileName}.md");                      
+                        docInfoLst.Add(new KeyValuePair<string, string>(filePath, docData.Data.Body));
+                    }                   
+                }             
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 处理知识库时发生错误: {ex.Message}");
+                DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 处理知识库时发生错误: {ex.Message}");
                 throw;
             }
+        }
+
+        static async Task ExportText(List<KeyValuePair<string,string>> docInfoLst)
+        {
+            try
+            {
+                List<Task> taskLst = new List<Task>();
+                for (int i = 0; i < docInfoLst.Count; i++)
+                {
+                    string filePath = docInfoLst[i].Key;
+                    string docText = docInfoLst[i].Value;
+                    taskLst.Add(File.WriteAllTextAsync(filePath, docText));
+                    DebugLog.Log($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 导出文档: {filePath}",ConsoleColor.Gray);
+                }
+                await Task.WhenAll(taskLst);
+            }
+            catch (Exception ex)
+            {
+                DebugLog.LogError($"[{DateTime.Now:yyyy-MM-dd HH:mm:ss}] 导出文档时发生错误: {ex.Message}");
+                throw;
+            }           
         }
     }
 }
